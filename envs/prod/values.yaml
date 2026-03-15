@@ -1,0 +1,58 @@
+image:
+  repository: ttl.sh/gitops-app-AumPatel21
+  tag: latest # pin to a release tag in real usage, e.g. v1.2.3
+  pullPolicy: IfNotPresent
+
+# Argo Rollouts replaces the standard Deployment in prod.
+# Set replicaCount here; Rollout spec controls the canary steps.
+replicaCount: 4
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 4
+  maxReplicas: 12
+  targetCPUUtilizationPercentage: 70
+
+rollout:
+  enabled: true # tells the Helm chart to render a Rollout, not a Deployment
+  strategy:
+    canary:
+      # Each step either shifts traffic or pauses for analysis.
+      # Argo Rollouts advances automatically if the AnalysisRun passes.
+      steps:
+        - setWeight: 10 # send 10% of traffic to new version
+        - pause:
+            duration: 2m # wait 2 min, then check metrics
+        - analysis:
+            templates:
+              - templateName: success-rate # defined in charts/app/templates/analysistemplate.yaml
+            args:
+              - name: service-name
+                value: gitops-app-canary
+        - setWeight: 50
+        - pause:
+            duration: 5m
+        - analysis:
+            templates:
+              - templateName: success-rate
+            args:
+              - name: service-name
+                value: gitops-app-canary
+        - setWeight: 100 # full rollout — old pods terminated
+
+ingress:
+  enabled: true
+  host: app.prod.example.com
+  tls: true
+
+env:
+  APP_ENV: production
+  LOG_LEVEL: info

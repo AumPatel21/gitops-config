@@ -1,0 +1,91 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: gitops-app
+  namespace: argocd
+spec:
+  # ── Generator ──────────────────────────────────────────────────────────────
+  # The List generator creates one ArgoCD Application per environment entry.
+  # To add a new environment, add an entry here — ArgoCD does the rest.
+  generators:
+    - list:
+        elements:
+          - env: dev
+            namespace: app-dev
+            syncPolicy: automated   # ArgoCD auto-syncs on config repo commit
+            revision: main
+
+          - env: staging
+            namespace: app-staging
+            syncPolicy: manual      # requires human approval in ArgoCD UI
+            revision: main
+
+          - env: prod
+            namespace: app-prod
+            syncPolicy: manual
+            revision: main          # pin to a tag in real life, e.g. v1.2.3
+
+  # ── Template ───────────────────────────────────────────────────────────────
+  # Each element above is interpolated into this template via {{env}}, etc.
+  template:
+    metadata:
+      name: "gitops-app-{{env}}"
+      namespace: argocd
+      annotations:
+        # Useful for tracing which ApplicationSet owns this app
+        argocd.argoproj.io/managed-by-cluster-type: "local"
+      labels:
+        app.kubernetes.io/name: gitops-app
+        app.kubernetes.io/instance: "{{env}}"
+
+    spec:
+      project: default
+
+      source:
+        repoURL: https://github.com/YOUR_USERNAME/gitops-config
+        targetRevision: "{{revision}}"
+        path: charts/app
+        helm:
+          # Each environment gets its own values file overlaid on top of
+          # the base chart defaults (charts/app/values.yaml)
+          valueFiles:
+            - ../../envs/{{env}}/values.yaml
+
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+
+      # ── Sync policy per environment ──────────────────────────────────────
+      syncPolicy:
+        automated:
+          # Templated field: only dev uses automated sync (see generator above)
+          # For staging/prod this block is ignored because syncPolicy=manual
+          prune: true        # remove resources deleted from Git
+          selfHeal: true     # revert manual kubectl changes (drift correction)
+        syncOptions:
+          - CreateNamespace=true   # auto-create namespace if missing
+          - PrunePropagationPolicy=foreground
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+
+      # ── Ignore differences ───────────────────────────────────────────────
+      # Prevents ArgoCD from showing HPA-managed replica counts as "out of sync"
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas
+
+      # ── Health checks ────────────────────────────────────────────────────
+      # ArgoCD waits for the Rollout to reach Healthy before marking sync done.
+      # Requires argo-rollouts to be installed in the cluster.
+      info:
+        - name: "Environment"
+          value: "{{env}}"
+        - name: "Namespace"
+          value: "{{namespace}}"
