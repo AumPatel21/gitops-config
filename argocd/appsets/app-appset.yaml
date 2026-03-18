@@ -12,18 +12,18 @@ spec:
         elements:
           - env: dev
             namespace: app-dev
-            syncPolicy: automated   # ArgoCD auto-syncs on config repo commit
+            syncPolicy: automated # ArgoCD auto-syncs on config repo commit
             revision: main
 
           - env: staging
             namespace: app-staging
-            syncPolicy: manual      # requires human approval in ArgoCD UI
+            syncPolicy: manual # requires human approval in ArgoCD UI
             revision: main
 
           - env: prod
             namespace: app-prod
             syncPolicy: manual
-            revision: main          # pin to a tag in real life, e.g. v1.2.3
+            revision: main # pin to a tag in real life, e.g. v1.2.3
 
   # ── Template ───────────────────────────────────────────────────────────────
   # Each element above is interpolated into this template via {{env}}, etc.
@@ -42,7 +42,7 @@ spec:
       project: default
 
       source:
-        repoURL: https://github.com/YOUR_USERNAME/gitops-config
+        repoURL: https://github.com/AumPatel21/gitops-config
         targetRevision: "{{revision}}"
         path: charts/app
         helm:
@@ -60,10 +60,10 @@ spec:
         automated:
           # Templated field: only dev uses automated sync (see generator above)
           # For staging/prod this block is ignored because syncPolicy=manual
-          prune: true        # remove resources deleted from Git
-          selfHeal: true     # revert manual kubectl changes (drift correction)
+          prune: true # remove resources deleted from Git
+          selfHeal: true # revert manual kubectl changes (drift correction)
         syncOptions:
-          - CreateNamespace=true   # auto-create namespace if missing
+          - CreateNamespace=true # auto-create namespace if missing
           - PrunePropagationPolicy=foreground
           - RespectIgnoreDifferences=true
         retry:
