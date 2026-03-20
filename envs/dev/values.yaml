@@ -1,10 +1,8 @@
 image:
-  repository: ttl.sh/gitops-app-AumPatel21
-  tag: latest # CI will overwrite this with sha-<commit>
+  repository: ttl.sh/gitops-app-aumpatel21
+  tag: sha-c32502a5fb2e413fb08b66b87c10bf3763f4a5de # CI will overwrite this with sha-<commit>
   pullPolicy: Always
-
 replicaCount: 1
-
 resources:
   requests:
     cpu: 100m
@@ -12,14 +10,11 @@ resources:
   limits:
     cpu: 250m
     memory: 256Mi
-
 autoscaling:
   enabled: false
-
 ingress:
   enabled: true
   host: app.dev.local
-
 env:
   APP_ENV: development
   LOG_LEVEL: debug
